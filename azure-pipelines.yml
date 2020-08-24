@@ -1,36 +1,28 @@
-# Python package
-# Create and test a Python package on multiple Python versions.
-# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/python
+from collections import OrderedDict
+from textwrap import indent
 
-trigger:
-- master
+import aspy.yaml
 
-pool:
-  vmImage: 'ubuntu-latest'
-strategy:
-  matrix:
-    Python27:
-      python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
+with open(".travis.yml") as f:
+    travis = aspy.yaml.ordered_load(f)
 
-- script: |
-    python -m pip install --upgrade pip
-    pip install -r requirements.txt
-  displayName: 'Install dependencies'
 
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest
-  displayName: 'pytest'
+matrix = OrderedDict()
+for build in travis["matrix"]["include"]:
+    tox_env = build.get("env", "nope")
+    if not tox_env.startswith("TOXENV="):
+        continue
+    tox_env = tox_env.split("=", 1)[1]
+    python = build["python"]
+    # Not supported yet.
+    if python.endswith("-dev"):
+        continue
+    if python == "pypy":
+        python = "pypy2"
+
+    matrix[tox_env] = OrderedDict(
+        (("python.version", python), ("tox.env", tox_env))
+    )
+
+print(indent(aspy.yaml.ordered_dump(matrix), " " * 8))
